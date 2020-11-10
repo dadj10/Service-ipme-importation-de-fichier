@@ -6,14 +6,17 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 
+import javax.mail.Address;
 import javax.mail.Authenticator;
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -208,10 +211,10 @@ public class ReadExcelFileScheduler {
 
 		System.out.println(Utils.dateNow() + " Run XLSXFileReader...");
 
-		// Creating a File object for directory.
+		// Création d'un objet File pour le répertoire.
 		File directoryPath = new File(readDirectory);
 
-		// List of all files and directories.
+		// Liste de tous les fichiers et répertoires.
 		File listFiles[] = directoryPath.listFiles();
 
 		// Je parcours la liste des fichiers trouvés.
@@ -229,16 +232,16 @@ public class ReadExcelFileScheduler {
 				try {
 					FileInputStream stream = new FileInputStream(file);
 
-					// Finds the workbook instance for XLSX file
+					// Je recherche workbook, l'instance de classeur pour le fichier XLSX.
 					XSSFWorkbook workbook = new XSSFWorkbook(stream);
 
-					// Return first sheet from the XLSX workbook
+					// Je recherhce sheet, la première feuille du classeur XLSX.
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					// Get iterator to all the rows in current sheet
+					// Je recherche l'itérateur de toutes les lignes de la feuille actuelle.
 					Iterator<Row> rowIterator = sheet.iterator();
 
-					// Traversing over each row of XLSX file
+					// Je parcours chaque ligne de fichier XLSX.
 					while (rowIterator.hasNext()) {
 						Row row = rowIterator.next();
 
@@ -373,72 +376,66 @@ public class ReadExcelFileScheduler {
 	 * La fonction sendEmailToRequerant() permet d'envoyer le mail contenant le lien
 	 * d'active de compte aux réquérants.
 	 */
-	public void sendEmailToRequerant(String toAddress, String url) {
-
+	public void sendEmailToRequerant(String toAddress, String url) throws UnsupportedEncodingException {
+		
 		Properties properties = null;
-		Authenticator auth = null;
 		Session session = null;
 
-		/*
-		 * String from = "no-reply@identificationpmeci.com"; String serverHost =
-		 * "SSL0.OVH.NET"; int serverPort = 587; String serverPassword =
-		 * "mamanMOMO1977";
-		 */
+		// String serverHost = "SSL0.OVH.NET";
+		// String serverPort = "587";
+		// String serverEmail = "no-reply@identificationpmeci.com";
+		// String serverPassword = "mamanMOMO1977";
 
-		// Je récupère les proprités du serveur.
-		properties = getServerProperties(serverHost, serverPort);
+		toAddress = "a.desire@hyperaccesss.com";
 
-		// creates a new session with an authenticator.
-		auth = authenticator(serverEmail, serverPassword);
+		// Je récupère les propriétés du serveur de messagerie.
+		properties = new Properties();
+		properties.put("mail.smtp.auth", "true");
+		properties.put("mail.smtp.starttls.enable", "true");
+		properties.put("mail.smtp.host", serverHost);
+		properties.put("mail.smtp.port", serverPort);
 
-		// Je récupère l'instance de la session.
-		session = Session.getInstance(properties, auth);
+		// Obtenez l'objet Session.
+		session = Session.getInstance(properties, new Authenticator() {
+			protected PasswordAuthentication getPasswordAuthentication() {
+				return new PasswordAuthentication(serverEmail, serverPassword);
+			}
+		});
 
 		try {
-			MimeMessage message = new MimeMessage(session);
+			// Créez un objet MimeMessage() par défaut.
+			Message message = new MimeMessage(session);
 
+			// Je definis l'expediteur du mail.
+			Address fromAddress = new InternetAddress(serverEmail,
+					"PLATEFORME ÉLECTRONIQUE D'IDENTIFICATION DES PME COTE D'IVOIRE");
+			message.setFrom(fromAddress);
+
+			// Je definis le destinataire du mail.
+			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toAddress));
+
+			// Je définis l'objet du mail.
 			message.setSubject("Création de compte requérant");
-			message.setHeader("Test", url);
 
-			message.setFrom(new InternetAddress(serverEmail));
-			message.addRecipient(Message.RecipientType.TO, new InternetAddress(toAddress));
+			// Je définis la date d'envoi du mail.
+			message.setSentDate(new Date());
 
-			// message.setText(url);
-			message.setContent(url, "text/html");
+			// Je definis le contenu de votre message.
+			String messageContent = "Bonjour,<br><br>"
+					+ "Votre compte vient d’être crée sur la plateforme d’identification des PME, <br>"
+					+ "Veuillez utiliser le lien ci-dessous pour procéder à son activation puis créer votre dossier.<br><br>"
+					+ "<a href=\"" + url + "\">" + url + "</a>";
+			// message.setText(messageContent);
+			message.setContent(messageContent, "text/html; charset=UTF-8");
 
 			// J'envois le message.
 			Transport.send(message);
-			System.out.println(Utils.dateNow() + " Email envoyé au réquérant " + toAddress);
+
+			System.out.println("Message envoyé avec succès ...");
+
 		} catch (MessagingException mex) {
-			mex.printStackTrace();
+			throw new RuntimeException(mex);
 		}
-	}
-
-	/*
-	 * La fonction getServerProperties() permet de récupérer les propriétés du
-	 * serveur de messagerie.
-	 */
-	public static Properties getServerProperties(String serverHost, int serverPort) {
-		Properties properties = new Properties();
-
-		properties.put("mail.smtp.host", serverHost);
-		properties.put("mail.smtp.port", serverPort);
-		properties.put("mail.smtp.auth", "true");
-		properties.put("mail.smtp.starttls.enable", "true");
-		properties.put("mail.smtp.ssl.trust", serverHost);
-
-		return properties;
-	}
-
-	public static Authenticator authenticator(String serverHost, String serverPassword) {
-		// Je crée une nouvelle session avec un authentificateur.
-		Authenticator auth = new Authenticator() {
-			@Override
-			public PasswordAuthentication getPasswordAuthentication() {
-				return new PasswordAuthentication(serverHost, serverPassword);
-			}
-		};
-		return auth;
 	}
 
 	/*
